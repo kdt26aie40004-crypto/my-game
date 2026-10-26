@@ -4,24 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CLIMB UP</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      background: #0d0818;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      image-rendering: pixelated;
-    }
-  </style>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <canvas id="game"></canvas>
-  <script src="game.js"></script>
+  <!-- 読み込み順に意味があるので並べ替えないこと（後のファイルが前のファイルの定数を使う） -->
+  <script src="js/config.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/rooms.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
