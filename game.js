@@ -42,7 +42,7 @@ const COYOTE_TIME = 0.1, JUMP_BUFFER = 0.1;
 //  色
 // ============================================================
 const CORE_READY = '#47e0ff';   // ダッシュ可能
-const DASH_COLOR = '#ffe03a';   // ダッシュ中の残像・光
+const DASH_COLOR = '#3d8bff';   // ダッシュ中の残像（ホログラム風の電光ブルー）
 const CORE_EMPTY = '#55606e';   // ダッシュ使用済み
 const CORE_WARN = '#ff5a4a';    // スタミナ切れ間近
 
@@ -58,6 +58,7 @@ const BIND = {
   dash: ['ShiftLeft', 'ShiftRight'],
   grab: ['Mouse0'],               // 左クリック
   retry: ['KeyR'],
+  skip: ['Enter'],                // 会話をスキップ
 };
 const keys = {}, pressed = {};
 function press(code) {
@@ -94,6 +95,7 @@ const SFX = {
   gear: [660, 1320, 0.2, 'triangle', 0.08],
   battery: [880, 1760, 0.15, 'sine', 0.08],
   win: [523, 1046, 0.8, 'triangle', 0.08],
+  talk: [900, 700, 0.03, 'square', 0.015],
 };
 function sfx(name) {
   if (!actx) return;
@@ -179,17 +181,165 @@ const ROOMS = [
     batteries: [[13, 11], [7, 4]],
     hints: [],
   },
+  // ---------- ダッシュ必須ステージ ----------
+  // 足場の間はジャンプだけでは届かない距離（横7〜8タイル / 縦5タイル以上）にしてある
+  {
+    name: 'ステージ 4. 浮き石の道',
+    spawn: [2, 16],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 10], [39, 15, 1, 8], [0, 17, 5, 6],
+             [5, 22, 34, 1], [13, 17, 3, 1], [23, 15, 3, 1], [33, 13, 7, 2]],
+    spikes: [[5, 21, 34]],
+    gears: [[14, 9]],
+    batteries: [],
+    hints: [[6, 4, 'ここからはダッシュ必須！\nジャンプしてから Shift で遠くまで届く']],
+  },
+  {
+    name: 'ステージ 5. 吹き抜け',
+    spawn: [19, 19],
+    solids: [[0, 0, 12, 1], [19, 0, 21, 1], [0, 0, 1, 23], [39, 0, 1, 23], [16, 20, 8, 3],
+             [1, 22, 15, 1], [24, 22, 15, 1], [26, 14, 3, 1], [14, 8, 3, 1]],
+    spikes: [[1, 21, 15], [24, 21, 15]],
+    gears: [[31, 9]],
+    batteries: [[21, 10]],
+    hints: [[2, 12, '上へのダッシュで\n高い足場へ']],
+  },
+  {
+    name: 'ステージ 6. バッテリーの橋',
+    spawn: [2, 7],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [0, 8, 5, 15], [5, 22, 30, 1], [35, 14, 5, 9],
+             [39, 0, 1, 11]],
+    spikes: [[5, 21, 30]],
+    gears: [[25, 13]],
+    batteries: [[12, 7], [20, 9], [28, 11]],
+    hints: [[6, 2, 'バッテリーをつないで渡れ！\n空中でふれるとダッシュが回復する']],
+  },
+  // ---------- 後半ステージ（今までの動きの組み合わせ） ----------
+  {
+    // ダッシュ必須: 浮いた足場の間が7〜8タイル
+    name: 'ステージ 7. 歯車の工場',
+    theme: 'ruins',
+    spawn: [2, 19],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 15], [0, 20, 5, 3], [5, 22, 28, 1],
+             [12, 19, 3, 1], [22, 17, 3, 1], [33, 18, 7, 5]],
+    spikes: [[5, 21, 28]],
+    gears: [[18, 12]],
+    batteries: [],
+    hints: [],
+  },
+  {
+    name: 'ステージ 8. 煙突',
+    theme: 'ruins',
+    spawn: [3, 19],
+    solids: [[0, 0, 27, 1], [33, 0, 7, 1], [0, 0, 1, 23], [39, 0, 1, 23], [0, 20, 40, 3],
+             [8, 5, 2, 15], [16, 7, 4, 1], [24, 3, 2, 10]],
+    spikes: [[10, 19, 29]],
+    gears: [[4, 3]],
+    batteries: [],
+    hints: [],
+  },
+  {
+    // ダッシュ必須: 細い鉄骨が上下しながら6〜7タイルおきに並ぶ（つかまれる壁がない）
+    name: 'ステージ 9. 鉄骨の谷',
+    theme: 'ruins',
+    spawn: [1, 16],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 7], [39, 11, 1, 12], [0, 17, 4, 6],
+             [4, 22, 35, 1], [11, 14, 2, 1], [20, 15, 2, 1], [29, 12, 2, 1], [37, 10, 3, 1]],
+    spikes: [[4, 21, 35]],
+    gears: [[25, 6]],
+    batteries: [],
+    hints: [],
+  },
+  {
+    name: 'ステージ 10. ピストンの塔',
+    theme: 'ruins',
+    spawn: [15, 19],
+    solids: [[0, 0, 14, 23], [26, 0, 14, 23], [14, 20, 12, 3],
+             [22, 17, 4, 1], [14, 14, 4, 1], [22, 11, 4, 1], [14, 8, 4, 1], [22, 5, 4, 1]],
+    spikes: [[18, 19, 8], [15, 13, 1], [23, 10, 2]],
+    gears: [[20, 9]],
+    batteries: [],
+    hints: [],
+  },
+  {
+    name: 'ステージ 11. スクラップの山',
+    theme: 'ruins',
+    spawn: [3, 19],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 5], [34, 8, 6, 15], [0, 20, 14, 3],
+             [18, 6, 3, 17], [14, 22, 4, 1], [21, 22, 13, 1], [15, 17, 2, 1]],
+    spikes: [[14, 21, 4], [21, 21, 13]],
+    gears: [[16, 10]],
+    batteries: [[26, 5]],
+    hints: [],
+  },
+  {
+    // ダッシュ必須: 壁から離れた足場を6段ずつ上へ（ジャンプだけでは届かない高さ）
+    name: 'ステージ 12. 崩れた昇降機',
+    theme: 'ruins',
+    spawn: [19, 19],
+    solids: [[0, 0, 14, 1], [21, 0, 19, 1], [0, 0, 1, 23], [39, 0, 1, 23], [17, 20, 6, 3],
+             [1, 22, 16, 1], [23, 22, 16, 1], [10, 14, 3, 1], [24, 8, 3, 1], [16, 3, 3, 1]],
+    spikes: [[1, 21, 16], [23, 21, 16]],
+    gears: [[31, 5]],
+    batteries: [[18, 9]],
+    hints: [],
+  },
+  {
+    name: 'ステージ 13. 歯車のつり橋',
+    theme: 'ruins',
+    spawn: [2, 15],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 13], [0, 16, 6, 7], [33, 16, 7, 7],
+             [6, 22, 27, 1], [12, 16, 2, 1], [21, 13, 2, 1]],
+    spikes: [[6, 21, 27]],
+    gears: [[21, 6]],
+    batteries: [[17, 12], [27, 12]],
+    hints: [],
+  },
+  {
+    name: 'ステージ 14. 崩落の縦穴',
+    theme: 'ruins',
+    spawn: [3, 19],
+    solids: [[0, 0, 30, 1], [36, 0, 4, 1], [0, 0, 1, 23], [39, 0, 1, 23], [1, 20, 7, 3],
+             [8, 22, 31, 1], [12, 15, 3, 1], [5, 10, 3, 1], [14, 6, 3, 1], [29, 6, 3, 1]],
+    spikes: [[8, 21, 31]],
+    gears: [[1, 4]],
+    batteries: [[22, 5]],
+    hints: [],
+  },
+  {
+    name: 'ステージ 15. スパークの回廊',
+    theme: 'ruins',
+    spawn: [2, 19],
+    solids: [[0, 0, 39, 15], [0, 0, 1, 23], [39, 0, 1, 15], [35, 18, 5, 5], [1, 20, 5, 3],
+             [14, 20, 3, 3], [25, 20, 3, 3], [6, 22, 29, 1]],
+    spikes: [[6, 21, 8], [17, 21, 8], [28, 21, 7]],
+    gears: [[21, 16]],
+    batteries: [],
+    hints: [],
+  },
+  {
+    name: 'ステージ 16. 最後の登り',
+    theme: 'ruins',
+    spawn: [2, 19],
+    solids: [[0, 0, 18, 1], [24, 0, 16, 1], [0, 0, 1, 23], [39, 0, 1, 23], [1, 20, 38, 3],
+             [8, 8, 2, 12], [16, 10, 3, 1], [30, 6, 3, 1], [20, 3, 4, 1]],
+    spikes: [[10, 19, 29]],
+    gears: [[38, 9]],
+    batteries: [[23, 6]],
+    hints: [],
+  },
   // ---------- ゴール ----------
   {
+    // 最後の試練: 小さな足場（トゲで安全な所は1マスだけ）→ バッテリー2つ → 天井近くのゲート
     name: '頂上のゲート',
+    theme: 'ruins',
     spawn: [2, 19],
-    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 23], [0, 20, 6, 3], [6, 22, 28, 1],
-             [9, 17, 3, 1], [16, 14, 3, 1], [23, 17, 3, 1], [28, 14, 3, 1], [34, 20, 6, 3]],
-    spikes: [[6, 21, 28]],
-    gears: [[20, 9]],
-    batteries: [[21, 11]],
-    goal: [36, 19],
-    hints: [[13, 4, 'ゲートをめざせ！']],
+    solids: [[0, 0, 40, 1], [0, 0, 1, 23], [39, 0, 1, 23], [1, 20, 4, 3], [5, 22, 34, 1],
+             [11, 18, 2, 1], [19, 15, 2, 1], [29, 13, 2, 1], [33, 4, 6, 1]],
+    spikes: [[5, 21, 34], [20, 14, 1], [33, 3, 1]],
+    gears: [[20, 8]],
+    batteries: [[25, 12], [30, 7]],
+    goal: [36, 3],
+    hints: [[3, 10, '最後の試練。\nゲートは天井の近くだ']],
   },
 ];
 const TOTAL_GEARS = ROOMS.reduce((n, r) => n + r.gears.length, 0);
@@ -495,12 +645,7 @@ function die() {
   deaths++;
   shake(0.3, 3);
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2;
-  const colors = ['#d8e0ea', '#7d8fa6', '#2f3542', coreColor()];
-  for (let i = 0; i < 14; i++) {
-    const a = Math.random() * Math.PI * 2, s = 50 + Math.random() * 70;
-    particles.push({ x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
-                     g: 300, life: 0.7, max: 0.7, color: colors[i % 4], size: 2 });
-  }
+  for (const c of ['#d8e0ea', '#7d8fa6', '#ffcc33', coreColor()]) burst(cx, cy, 4, c, 110, 300);
   sfx('death');
 }
 
@@ -534,11 +679,13 @@ function sparks(x, y, n) {
                      g: 200, life: 0.25, max: 0.25, color: Math.random() < 0.5 ? '#ffd23f' : '#ff8a3d', size: 1 });
 }
 
-function burst(x, y, n, color, speed) {
+// 小さな歯車を回転させながら飛び散らせる
+function burst(x, y, n, color, speed, gravity = 0) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, s = speed * (0.5 + Math.random() * 0.5);
     particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-                     g: 0, life: 0.4, max: 0.4, color, size: 2 });
+                     g: gravity, life: 0.5, max: 0.5, color, size: 2,
+                     gear: true, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 20 });
   }
 }
 
@@ -556,6 +703,7 @@ function updateEffects(dt) {
   }
   for (const p of particles) {
     p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt;
+    if (p.gear) { p.rot += p.vr * dt; p.vx *= 0.96; p.vy = p.g ? p.vy : p.vy * 0.96; }
   }
   particles = particles.filter(p => p.life > 0);
   for (const a of afterimages) a.life -= dt;
@@ -615,6 +763,93 @@ function updateEntities(dt) {
 // ============================================================
 //  メインループ
 // ============================================================
+// ============================================================
+//  オープニングの会話（ゲートをめざす理由）
+// ============================================================
+const STORY = [
+  { who: 'robot', text: 'ピピッ。目標は遺跡の頂上の「ゲート」。彼の地へ向かいます。' },
+];
+const SPEAKERS = {
+  record: { name: '博士の記録', color: '#5cf27a' },
+  robot: { name: 'No.7', color: CORE_READY },
+};
+let storyIndex = 0, storyChars = 0;
+
+function beginStory() {
+  state = 'story';
+  storyIndex = 0; storyChars = 0;
+  loadRoom(0);
+  bannerT = 0;
+  placePlayer();
+  fadeT = 0.4;
+  document.body.style.cursor = 'none';
+}
+
+function updateStory(dt) {
+  const line = STORY[storyIndex].text;
+  const before = Math.floor(storyChars);
+  storyChars = Math.min(line.length, storyChars + 30 * dt);
+  const now = Math.floor(storyChars);
+  if (now > before && now % 2 === 0 && line[now - 1] !== '\n') sfx('talk');
+  if (hit('skip')) { startGame(); return; }
+  if (!hit('jump')) return;
+  if (storyChars < line.length) storyChars = line.length;          // 文字送りを一気に表示
+  else if (++storyIndex >= STORY.length) startGame();
+  else storyChars = 0;
+}
+
+// 会話ウィンドウ左の顔アイコン（16x16 で描いて拡大する）
+const portrait = document.createElement('canvas');
+portrait.width = 16; portrait.height = 16;
+const pctx = portrait.getContext('2d');
+
+function drawPortrait(who) {
+  pctx.clearRect(0, 0, 16, 16);
+  if (who === 'robot') {
+    drawRobot(5, 6, 1, 1, 1, null, pctx);
+    pctx.fillStyle = '#5b6678';
+    pctx.fillRect(8, 2, 1, 3);
+    pctx.fillStyle = CORE_READY;
+    pctx.fillRect(7, 1, 2, 2);
+  } else {
+    // 古いモニターに映る波形
+    pctx.fillStyle = '#2f3542';
+    pctx.fillRect(1, 2, 14, 11);
+    pctx.fillRect(6, 13, 4, 2);
+    pctx.fillStyle = '#0e2a1e';
+    pctx.fillRect(2, 3, 12, 9);
+    pctx.fillStyle = '#5cf27a';
+    const talking = storyChars < STORY[storyIndex].text.length;
+    for (let x = 2; x < 14; x++) {
+      const amp = talking ? Math.sin(t * 20 + x * 1.3) * 3 : 0;
+      pctx.fillRect(x, Math.round(7 + amp), 1, 1);
+    }
+  }
+}
+
+function drawStory() {
+  vctx.fillStyle = 'rgba(10,5,25,0.45)';
+  vctx.fillRect(0, 0, view.width, view.height);
+  const line = STORY[storyIndex];
+  const sp = SPEAKERS[line.who];
+  // ウィンドウ
+  const bx = 8, by = 122, bw = W - 16, bh = 54;
+  vctx.fillStyle = 'rgba(20,10,35,0.9)';
+  vctx.fillRect(bx * scale, by * scale, bw * scale, bh * scale);
+  vctx.strokeStyle = sp.color;
+  vctx.lineWidth = Math.max(1, scale / 2);
+  vctx.strokeRect(bx * scale, by * scale, bw * scale, bh * scale);
+  // 顔アイコン
+  drawPortrait(line.who);
+  vctx.imageSmoothingEnabled = false;
+  vctx.drawImage(portrait, (bx + 6) * scale, (by + 8) * scale, 38 * scale, 38 * scale);
+  // 名前と本文（1文字ずつ表示）
+  text(sp.name, bx + 52, by + 6, 7, sp.color);
+  text(line.text.slice(0, Math.floor(storyChars)), bx + 52, by + 19, 7, '#ffffff');
+  if (storyChars >= line.text.length && Math.floor(t * 3) % 2 === 0) text('▼', bx + bw - 12, by + bh - 11, 6, '#ffffff');
+  text('C / Space: つぎへ   Enter: スキップ', W - 6, 4, 5, '#e8e0ff', 'right', 0.8);
+}
+
 function startGame() {
   deaths = 0; playTime = 0;
   collected.clear();
@@ -630,7 +865,11 @@ function step(dt) {
   t += dt;
   updateEffects(dt);
   if (state === 'title') {
-    if (hit('jump')) startGame();
+    if (hit('jump')) beginStory();
+    return;
+  }
+  if (state === 'story') {
+    updateStory(dt);
     return;
   }
   if (state === 'win') {
@@ -667,33 +906,62 @@ function frame(now) {
 // ============================================================
 
 // 背景: 夕焼けの空・太陽・雲・遠くの台地
-const bgCanvas = document.createElement('canvas');
-bgCanvas.width = W; bgCanvas.height = H;
-(function renderBackground() {
-  const b = bgCanvas.getContext('2d');
+// alt（0〜1）が大きいほど高い所にいる: 台地と太陽が下に沈み、足元に雲海、空の上の方は夜空になる
+const RUINS_START = ROOMS.findIndex(r => r.theme === 'ruins');
+function roomAlt(i) {
+  return i < RUINS_START ? 0 : (i - RUINS_START + 1) / (ROOMS.length - RUINS_START);
+}
+
+function mixColor(a, b, k) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = s => Math.round(((pa >> s) & 255) * (1 - k) + ((pb >> s) & 255) * k);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
+const bgCache = new Map();
+function getBackground(alt) {
+  const key = alt.toFixed(3);
+  if (bgCache.has(key)) return bgCache.get(key);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const b = c.getContext('2d');
+
   const g = b.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#3b2463');
-  g.addColorStop(0.45, '#e0607e');
-  g.addColorStop(0.75, '#ffa25e');
+  g.addColorStop(0, mixColor('#3b2463', '#0f0826', alt));
+  g.addColorStop(0.45 + alt * 0.25, mixColor('#e0607e', '#b04a80', alt));
+  g.addColorStop(Math.min(0.95, 0.75 + alt * 0.18), '#ffa25e');
   g.addColorStop(1, '#ffd08a');
   b.fillStyle = g;
   b.fillRect(0, 0, W, H);
 
+  // 高い所ほど星が見える
+  if (alt > 0) {
+    b.fillStyle = '#ffffff';
+    for (let i = 0; i < 70; i++) {
+      const sx = (i * 97) % W, sy = (i * 53) % Math.round(H * 0.5);
+      b.globalAlpha = alt * (0.3 + ((i * 31) % 7) / 10);
+      b.fillRect(sx, sy, 1, 1);
+    }
+    b.globalAlpha = 1;
+  }
+
+  const sunY = 95 + alt * 45;
   b.fillStyle = 'rgba(255,240,180,0.25)';
-  b.beginPath(); b.arc(235, 95, 34, 0, Math.PI * 2); b.fill();
+  b.beginPath(); b.arc(235, sunY, 34, 0, Math.PI * 2); b.fill();
   b.fillStyle = '#fff1b8';
-  b.beginPath(); b.arc(235, 95, 24, 0, Math.PI * 2); b.fill();
+  b.beginPath(); b.arc(235, sunY, 24, 0, Math.PI * 2); b.fill();
 
   b.fillStyle = 'rgba(255,200,170,0.45)';
   for (const [cx, cy, w] of [[40, 40, 50], [150, 28, 70], [280, 50, 45], [100, 70, 40]]) {
-    b.fillRect(cx - w / 2, cy, w, 4);
-    b.fillRect(cx - w / 3, cy - 3, w * 0.6, 3);
+    const y = cy + alt * 70;
+    b.fillRect(cx - w / 2, y, w, 4);
+    b.fillRect(cx - w / 3, y - 3, w * 0.6, 3);
   }
 
-  // 台地のシルエット（平らな頂上を持つ段々の形）
+  // 台地のシルエット（登るほど下へ沈む）
   const layers = [
-    { color: '#b0486e', base: 120, seed: 2 },
-    { color: '#7a2f5e', base: 150, seed: 7 },
+    { color: '#b0486e', base: 120 + alt * 75, seed: 2 },
+    { color: '#7a2f5e', base: 150 + alt * 75, seed: 7 },
   ];
   for (const m of layers) {
     b.fillStyle = m.color;
@@ -708,15 +976,33 @@ bgCanvas.width = W; bgCanvas.height = H;
     b.lineTo(W, H);
     b.fill();
   }
-})();
+
+  // 足元の雲海（登るほど厚くなる）
+  if (alt > 0) {
+    const top = H - 8 - alt * 50;
+    for (const [color, off] of [['#f4b8a8', 0], ['#ffe2cf', 8]]) {
+      b.fillStyle = color;
+      for (let x = -10; x <= W + 10; x += 14) {
+        const r = 9 + ((x * 7 + off) % 5);
+        b.beginPath(); b.arc(x + off, top + off + Math.sin(x * 0.07 + off) * 3, r, 0, Math.PI * 2); b.fill();
+      }
+      b.fillRect(0, top + off, W, H);
+    }
+  }
+
+  bgCache.set(key, c);
+  return c;
+}
 
 function renderTiles() {
   tctx.clearRect(0, 0, W, H);
+  const ruins = room.theme === 'ruins';
   const solidR = (tx, ty) => tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS || grid[ty][tx] === 1;
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const px = x * TILE, py = y * TILE;
       if (grid[y][x] === 1) {
+        if (ruins) { drawRuinStone(x, y, px, py, solidR); continue; }
         // 石レンガ
         tctx.fillStyle = '#4a3550';
         tctx.fillRect(px, py, TILE, TILE);
@@ -755,32 +1041,89 @@ function renderTiles() {
   }
 }
 
-function drawRobot(x, y, facing, sx, sy, silhouette) {
+// 遺跡の石ブロック（16x8 の石を互い違いに積み、ひび・苔をランダムに付ける）
+function drawRuinStone(x, y, px, py, solidR) {
+  const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+  const stoneStart = (x + y) % 2 === 0;
+  tctx.fillStyle = (h % 4 === 0) ? '#6e6a78' : '#77727f';
+  tctx.fillRect(px, py, TILE, TILE);
+  // 目地
+  tctx.fillStyle = '#55515d';
+  tctx.fillRect(px, py + 7, TILE, 1);
+  if (!stoneStart) tctx.fillRect(px + 7, py, 1, 7);
+  tctx.fillStyle = '#8e8a96';
+  tctx.fillRect(px, py, stoneStart ? TILE : 7, 1);
+  // ひび
+  if (h % 7 === 0) {
+    tctx.fillStyle = '#5a5664';
+    tctx.fillRect(px + 2, py + 2, 1, 1);
+    tctx.fillRect(px + 3, py + 3, 1, 1);
+    tctx.fillRect(px + 3, py + 4, 1, 1);
+    tctx.fillRect(px + 4, py + 5, 1, 1);
+  }
+  // 側面と底の縁取り
+  tctx.fillStyle = '#8e8a96';
+  if (!solidR(x - 1, y)) tctx.fillRect(px, py, 1, TILE);
+  tctx.fillStyle = '#5f5b68';
+  if (!solidR(x + 1, y)) tctx.fillRect(px + TILE - 1, py, 1, TILE);
+  if (!solidR(x, y + 1)) { tctx.fillStyle = '#46424f'; tctx.fillRect(px, py + TILE - 1, TILE, 1); }
+  // ところどころ苔むした石
+  if (h % 5 === 0) {
+    tctx.fillStyle = '#5d8a36';
+    tctx.fillRect(px + 1 + (h % 3), py + 2 + (h % 2), 3, 2);
+    tctx.fillRect(px + 2 + (h % 3), py + 4, 1, 1);
+  }
+  // 上が空いていれば苔が覆い、ふちから垂れる
+  if (!solidR(x, y - 1)) {
+    tctx.fillStyle = '#6f9e3c';
+    tctx.fillRect(px, py, TILE, 2);
+    tctx.fillStyle = '#5a8a32';
+    for (let i = 0; i < TILE; i++) {
+      const d = (h >> (i * 3)) & 7;
+      if (d < 3) tctx.fillRect(px + i, py + 2, 1, d + 1);
+    }
+    tctx.fillStyle = '#8fc457';
+    if (h % 3 === 0) tctx.fillRect(px + 3, py - 1, 1, 1);
+    if (h % 4 === 1) tctx.fillRect(px + 6, py - 1, 1, 1);
+  }
+  // 横が空いていれば側面にも少し苔
+  if (!solidR(x - 1, y) && h % 3 === 1) { tctx.fillStyle = '#5a8a32'; tctx.fillRect(px, py + 1, 1, 3); }
+  if (!solidR(x + 1, y) && h % 3 === 2) { tctx.fillStyle = '#5a8a32'; tctx.fillRect(px + TILE - 1, py + 2, 1, 3); }
+}
+
+function drawRobot(x, y, facing, sx, sy, silhouette, g = ctx) {
   const bw = Math.round(8 * sx), bh = Math.round(9 * sy);
   const cx = Math.round(x + P.w / 2), by = Math.round(y + P.h);
   const left = cx - Math.floor(bw / 2), top = by - bh;
-  if (silhouette) { ctx.fillStyle = silhouette; ctx.fillRect(left, top, bw, bh); return; }
+  if (silhouette) {
+    // ホログラム風の残像（走査線のように1行おきに描く）
+    g.fillStyle = silhouette;
+    for (let yy = top; yy < by; yy += 2) g.fillRect(left, yy, bw, 1);
+    g.fillRect(left, top, 1, bh);
+    g.fillRect(left + bw - 1, top, 1, bh);
+    return;
+  }
   const headH = Math.round(bh * 0.5);
   const step = (P.onGround || P.grabbing) && Math.floor(P.runT / 5) % 2 === 1;
   // 足
-  ctx.fillStyle = '#2f3542';
-  ctx.fillRect(left + 1, by - 2 - (step ? 1 : 0), 2, 2);
-  ctx.fillRect(left + bw - 3, by - 2 - (step ? 0 : 1), 2, 2);
+  g.fillStyle = '#2f3542';
+  g.fillRect(left + 1, by - 2 - (step ? 1 : 0), 2, 2);
+  g.fillRect(left + bw - 3, by - 2 - (step ? 0 : 1), 2, 2);
   // 胴体
-  ctx.fillStyle = '#7d8fa6';
-  ctx.fillRect(left + 1, top + headH, bw - 2, bh - headH - 2);
-  ctx.fillStyle = '#a9b7c9';
-  ctx.fillRect(left + 2, top + headH + 1, bw - 4, 1);
+  g.fillStyle = '#7d8fa6';
+  g.fillRect(left + 1, top + headH, bw - 2, bh - headH - 2);
+  g.fillStyle = '#a9b7c9';
+  g.fillRect(left + 2, top + headH + 1, bw - 4, 1);
   // 頭
-  ctx.fillStyle = '#d8e0ea';
-  ctx.fillRect(left, top, bw, headH);
-  ctx.fillStyle = '#aab6c6';
-  ctx.fillRect(left, top + headH - 1, bw, 1);
+  g.fillStyle = '#d8e0ea';
+  g.fillRect(left, top, bw, headH);
+  g.fillStyle = '#aab6c6';
+  g.fillRect(left, top + headH - 1, bw, 1);
   // バイザーと目（ダッシュ可能かどうかで光る色が変わる）
-  ctx.fillStyle = '#1d2430';
-  ctx.fillRect(left + 1, top + 1, bw - 2, 2);
-  ctx.fillStyle = coreColor();
-  ctx.fillRect(cx + (facing > 0 ? 1 : -3), top + 1, 2, 2);
+  g.fillStyle = '#1d2430';
+  g.fillRect(left + 1, top + 1, bw - 2, 2);
+  g.fillStyle = coreColor();
+  g.fillRect(cx + (facing > 0 ? 1 : -3), top + 1, 2, 2);
 }
 
 function drawPlayer() {
@@ -867,7 +1210,19 @@ function drawParticles() {
   for (const p of particles) {
     ctx.globalAlpha = Math.max(0, p.life / p.max);
     ctx.fillStyle = p.color;
-    ctx.fillRect(Math.round(p.x - p.size / 2), Math.round(p.y - p.size / 2), p.size, p.size);
+    if (p.gear) {
+      // 歯車: 丸い本体 + 回転する4枚の歯
+      const x = Math.round(p.x), y = Math.round(p.y);
+      ctx.fillRect(x - 1, y - 1, 3, 3);
+      for (let i = 0; i < 4; i++) {
+        const a = p.rot + i * Math.PI / 2;
+        ctx.fillRect(Math.round(x + Math.cos(a) * 2.5), Math.round(y + Math.sin(a) * 2.5), 1, 1);
+      }
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(x, y, 1, 1);
+    } else {
+      ctx.fillRect(Math.round(p.x - p.size / 2), Math.round(p.y - p.size / 2), p.size, p.size);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -903,7 +1258,7 @@ function formatTime(s) {
 }
 
 function render() {
-  ctx.drawImage(bgCanvas, 0, 0);
+  ctx.drawImage(getBackground(state === 'title' ? 0 : roomAlt(roomIndex)), 0, 0);
   if (state !== 'title') {
     ctx.drawImage(tileCanvas, 0, 0);
     drawEntities();
@@ -928,6 +1283,15 @@ function render() {
     text('移動: ← → ↑ ↓ / WASD\nジャンプ: C / Space\nダッシュ: Shift\n壁につかまる: 左クリック\nやり直し: R',
          W / 2, 82, 7, '#fff4e0', 'center');
     if (Math.floor(t * 2) % 2 === 0) text('C / Space でスタート', W / 2, 158, 9, '#ffe066', 'center');
+    return;
+  }
+
+  if (state === 'story') {
+    drawStory();
+    if (fadeT > 0) {
+      vctx.fillStyle = `rgba(0,0,0,${Math.min(1, fadeT / 0.25)})`;
+      vctx.fillRect(0, 0, view.width, view.height);
+    }
     return;
   }
 
