@@ -377,7 +377,7 @@ function render() {
   vctx.drawImage(buf, ox * scale, oy * scale, W * scale, H * scale);
 
   if (state === 'title') {
-    text('CLIMB UP', W / 2, 26, 28, '#ffffff', 'center');
+    text('RUIN ASCENT', W / 2, 26, 28, '#ffffff', 'center');
     text('〜 ロボットの遺跡のぼり 〜', W / 2, 60, 8, '#ffe0b0', 'center');
     text('移動: ← → ↑ ↓ / WASD\nジャンプ: C / Space\nダッシュ: Shift\n壁につかまる: 左クリック\nやり直し: R',
          W / 2, 82, 7, '#fff4e0', 'center');
